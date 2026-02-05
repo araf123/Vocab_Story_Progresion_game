@@ -167,6 +167,83 @@
         let currentConn = null;
         let uploadedImageBase64 = "";
         let currentStoryId = null;
+        const DEFAULT_STORIES = {
+            lexicon_academy: {
+                id: 'lexicon_academy',
+                title: 'Lexicon Academy',
+                synopsis: 'Embark on your journey at the prestigious Lexicon Academy. Uncover the secrets of ancient linguistics and master the power of words to shape your destiny.',
+                thumbnail: '',
+                data: {
+                    start: {
+                        text: 'You stand before the [towering|extremely tall] gates of Lexicon Academy. A [mist|thin fog] clings to the ivy, obscuring the path ahead. The [ominous|threatening] silence is broken only by the distant [peal|loud ringing] of a bell.',
+                        choices: [
+                            { text: 'Approach the Great Gates', next: 'gates' },
+                            { text: 'Investigate the Ivy', next: 'ivy' },
+                            { text: 'Listen to the Bell', next: 'bell' }
+                        ]
+                    },
+                    gates: { text: 'The gates are [unyielding|impossible to move].', choices: [{ text: 'Return', next: 'start' }] },
+                    ivy: { text: 'The ivy is [verdant|bright green].', choices: [{ text: 'Return', next: 'start' }] },
+                    bell: { text: 'The bell is [resonant|deep and full].', choices: [{ text: 'Return', next: 'start' }] }
+                }
+            },
+            the_library: {
+                id: 'the_library',
+                title: 'The Library',
+                synopsis: 'Explore the endless corridors of the Great Library. Find forgotten scrolls and expand your vocabulary through ancient texts.',
+                thumbnail: '',
+                data: { start: { text: 'Rows of [dusty|covered in fine powder] tomes tower around you.', choices: [{ text: 'Keep exploring', next: 'start' }] } }
+            },
+            the_science_lab: {
+                id: 'the_science_lab',
+                title: 'The Science Lab',
+                synopsis: 'Master technical terminology and scientific discourse in the state-of-the-art research facility of the Lexicon Academy.',
+                thumbnail: '',
+                data: { start: { text: 'The lab is [meticulous|very careful] and precise.', choices: [{ text: 'Repeat drill', next: 'start' }] } }
+            },
+            training_grounds: {
+                id: 'training_grounds',
+                title: 'The Training Grounds',
+                synopsis: "Sharpen your skills with rapid-fire exercises and competitive word-building challenges against the Academy's elite.",
+                thumbnail: '',
+                data: { start: { text: 'You begin a [rapid|very fast] vocabulary challenge.', choices: [{ text: 'Try again', next: 'start' }] } }
+            }
+        };
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function normalizeNodeId(rawValue) {
+            return String(rawValue || '')
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, '_')
+                .replace(/[^a-z0-9_-]/g, '');
+        }
+
+        function getAllStories() {
+            let allStories = {};
+            try { allStories = JSON.parse(localStorage.getItem('admin_stories') || '{}') || {}; } catch (e) {}
+            return allStories;
+        }
+
+        function seedDefaultStories() {
+            const allStories = getAllStories();
+            let changed = false;
+            Object.entries(DEFAULT_STORIES).forEach(([id, story]) => {
+                if (!allStories[id]) {
+                    allStories[id] = story;
+                    changed = true;
+                }
+            });
+            if (changed) localStorage.setItem('admin_stories', JSON.stringify(allStories));
+        }
 
         function escapeHtml(value) {
             return String(value)
@@ -431,12 +508,26 @@
         function renderSavedStories() {
             const list = document.getElementById('saved-stories-list');
             list.innerHTML = '';
-            let allStories = {};
-            try { allStories = JSON.parse(localStorage.getItem('admin_stories') || '{}'); } catch (e) {}
+            const allStories = getAllStories();
             
             Object.values(allStories).forEach(story => {
                 const item = document.createElement('div');
                 item.className = "p-2 bg-card border border-border rounded text-xs cursor-pointer hover:border-primary transition-all flex justify-between items-center group";
+                const title = document.createElement('span');
+                title.className = 'flex-1 truncate';
+                title.textContent = story.title || 'Untitled Adventure';
+                title.addEventListener('click', () => loadStory(story.id));
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'opacity-0 group-hover:opacity-100 text-secondary hover:text-red-500 ml-2';
+                delBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteStory(story.id);
+                });
+
+                item.appendChild(title);
+                item.appendChild(delBtn);
                 item.innerHTML = `
                     <span onclick="loadStory('${escapeHtml(story.id)}')" class="flex-1 truncate">${escapeHtml(story.title || 'Untitled Adventure')}</span>
                     <button onclick="deleteStory('${escapeHtml(story.id)}')" class="opacity-0 group-hover:opacity-100 text-secondary hover:text-red-500 ml-2">
@@ -499,6 +590,7 @@
             if(currentStoryId === id) resetArchitect();
         }
 
+        seedDefaultStories();
         renderSavedStories();
         addNode();
     </script>
