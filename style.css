@@ -1,0 +1,32 @@
+/* Custom scrollbar for a cleaner dark UI */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #27272a;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #3f3f46;
+}
+
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Optional: Add smooth transition for backdrop blur */
+header {
+    transition: background-color 0.2s, backdrop-filter 0.2s;
+}
+
+/* Ensure serif text is legible and elegant */
+.font-serif {
+    letter-spacing: -0.01em;
+}

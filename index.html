@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#000000',
+                        card: '#09090b',
+                        border: '#27272a',
+                        primary: '#ffffff',
+                        secondary: '#a1a1aa',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Lora', 'serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #000000; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+        body { -webkit-font-smoothing: antialiased; }
+    </style>
+</head>
+<body class="bg-background text-primary font-sans overflow-hidden">
+
+    <!-- View: Dashboard -->
+    <div id="dashboard-view" class="flex h-screen overflow-hidden transition-opacity duration-300">
+        <!-- Sidebar -->
+        <aside class="w-[280px] border-r border-border bg-background flex-shrink-0 flex flex-col hidden md:flex">
+            <div class="p-6 border-b border-border">
+                <h1 class="text-xl font-bold tracking-tight">VocabFlow</h1>
+            </div>
+            <nav class="flex-1 p-4 space-y-2">
+                <a href="#" class="flex items-center space-x-3 p-3 rounded-lg bg-card text-primary transition-all duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-secondary hover:bg-card hover:text-primary transition-all duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    <span>Library</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-secondary hover:bg-card hover:text-primary transition-all duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    <span>Grimoire</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 p-3 rounded-lg text-secondary hover:bg-card hover:text-primary transition-all duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A2 2 0 013 15.483V6.517a2 2 0 011.553-1.943L9 3m0 17l6.553-3.277A2 2 0 0117 15.723V6.777a2 2 0 01-1.447-1.943L11 3M9 20V3m6 17V3"></path></svg>
+                    <span>Map</span>
+                </a>
+            </nav>
+            <div class="p-4 border-t border-border">
+                            <button class="flex items-center space-x-3 p-3 w-full rounded-lg text-secondary hover:bg-card hover:text-primary transition-all duration-200">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                <span>Settings</span>
+                            </button>
+                            <a href="admin.html" class="flex items-center space-x-3 p-3 mt-2 w-full rounded-lg text-secondary/50 hover:text-primary transition-all duration-200 text-xs">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                                <span>Admin Portal</span>
+                            </a>
+                        </div>        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto bg-background">
+            <header class="p-6 border-b border-border sticky top-0 bg-background/80 backdrop-blur-md z-10 flex justify-between items-center">
+                <h2 class="text-2xl font-semibold">Story Adventures</h2>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm font-medium text-secondary">Araf</span>
+                    <div class="w-8 h-8 rounded-full bg-border"></div>
+                </div>
+            </header>
+
+            <div class="p-8 space-y-8 max-w-7xl mx-auto">
+                
+                <!-- Main Story: Large Card -->
+                <section>
+                    <div class="story-card bg-card border border-border rounded-2xl overflow-hidden hover:border-secondary transition-all duration-300 group cursor-pointer" 
+                         data-title="Lexicon Academy" 
+                         data-synopsis="Embark on your journey at the prestigious Lexicon Academy. Uncover the secrets of ancient linguistics and master the power of words to shape your destiny.">
+                        <div class="grid grid-cols-1 lg:grid-cols-2">
+                            <div class="aspect-video lg:aspect-auto bg-[#18181b] min-h-[300px]"></div>
+                            <div class="p-8 flex flex-col justify-center">
+                                <div class="mb-4">
+                                    <span class="px-3 py-1 bg-primary text-background text-xs font-bold rounded-full uppercase tracking-wider">Main Quest</span>
+                                </div>
+                                <h3 class="text-3xl font-bold mb-4">Lexicon Academy</h3>
+                                <p class="text-secondary leading-relaxed mb-8">
+                                    Embark on your journey at the prestigious Lexicon Academy...
+                                </p>
+                                <div class="flex items-center space-x-6 mb-8 text-sm text-secondary">
+                                    <div class="flex items-center"><span class="w-2 h-2 bg-primary rounded-full mr-2"></span> Intermediate</div>
+                                    <div class="flex items-center"><span class="w-2 h-2 bg-primary rounded-full mr-2"></span> 45 New Words</div>
+                                </div>
+                                <button class="start-btn w-full lg:w-max px-8 py-3 bg-primary text-background font-bold rounded-xl hover:opacity-90 transition-opacity">
+                                    Continue Adventure
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Grid: Smaller Story Adventures -->
+                <section>
+                    <h4 class="text-secondary text-xs font-bold uppercase tracking-[0.2em] mb-6">Sub-Quests</h4>
+                    <div id="custom-story-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        
+                        <!-- The Library -->
+                        <div class="story-card bg-card border border-border rounded-2xl p-6 flex flex-col hover:border-secondary transition-all duration-300 group cursor-pointer"
+                             data-title="The Library"
+                             data-synopsis="Explore the endless corridors of the Great Library. Find forgotten scrolls and expand your vocabulary through ancient texts.">
+                            <div class="aspect-video bg-[#18181b] rounded-xl mb-6"></div>
+                            <h3 class="text-xl font-bold mb-2">The Library</h3>
+                            <p class="text-secondary text-sm leading-relaxed mb-6 flex-1">Explore the endless corridors of the Great Library. Find forgotten scrolls...</p>
+                            <button class="start-btn w-full py-2.5 border border-border rounded-xl text-sm font-bold hover:bg-primary hover:text-background transition-all">Enter Library</button>
+                        </div>
+
+                        <!-- The Science Lab -->
+                        <div class="story-card bg-card border border-border rounded-2xl p-6 flex flex-col hover:border-secondary transition-all duration-300 group cursor-pointer"
+                             data-title="The Science Lab"
+                             data-synopsis="Master technical terminology and scientific discourse in the state-of-the-art research facility of the Lexicon Academy.">
+                            <div class="aspect-video bg-[#18181b] rounded-xl mb-6"></div>
+                            <h3 class="text-xl font-bold mb-2">The Science Lab</h3>
+                            <p class="text-secondary text-sm leading-relaxed mb-6 flex-1">Master technical terminology and scientific discourse...</p>
+                            <button class="start-btn w-full py-2.5 border border-border rounded-xl text-sm font-bold hover:bg-primary hover:text-background transition-all">Enter Lab</button>
+                        </div>
+
+                        <!-- The Training Grounds -->
+                        <div class="story-card bg-card border border-border rounded-2xl p-6 flex flex-col hover:border-secondary transition-all duration-300 group cursor-pointer"
+                             data-title="The Training Grounds"
+                             data-synopsis="Sharpen your skills with rapid-fire exercises and competitive word-building challenges against the Academy's elite.">
+                            <div class="aspect-video bg-[#18181b] rounded-xl mb-6"></div>
+                            <h3 class="text-xl font-bold mb-2">The Training Grounds</h3>
+                            <p class="text-secondary text-sm leading-relaxed mb-6 flex-1">Sharpen your skills with rapid-fire exercises...</p>
+                            <button class="start-btn w-full py-2.5 border border-border rounded-xl text-sm font-bold hover:bg-primary hover:text-background transition-all">Begin Training</button>
+                        </div>
+
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- View: Adventure -->
+    <div id="adventure-view" class="fixed inset-0 bg-background z-[60] hidden flex flex-col">
+        <!-- Progress Header -->
+        <header class="p-4 border-b border-border bg-background/80 backdrop-blur-md flex justify-between items-center px-8 shrink-0">
+            <button id="back-to-library" class="text-sm font-medium text-secondary hover:text-primary flex items-center transition-colors">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                Back to Library
+            </button>
+            <div class="text-sm font-medium">
+                Words Discovered: <span id="found-count" class="text-primary">0</span> / <span id="total-count" class="text-secondary">0</span>
+            </div>
+        </header>
+
+        <!-- Story Content -->
+        <main class="flex-1 overflow-y-auto">
+            <div class="max-w-2xl mx-auto py-20 px-6">
+                <h1 class="text-4xl font-bold mb-12 text-center" id="active-story-title">Adventure Title</h1>
+                <div id="story-container" class="font-serif text-xl leading-relaxed text-secondary space-y-8">
+                    <div id="story-text" class="space-y-6">
+                        <!-- Story paragraphs will be injected here -->
+                    </div>
+                    
+                    <!-- Choice System -->
+                    <div id="choice-container" class="hidden flex flex-col gap-4 mt-12 opacity-0 transition-opacity duration-700">
+                        <!-- Choice buttons will be injected here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Synopsis Modal Overlay -->
+    <div id="synopsis-modal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm hidden px-6">
+        <div class="bg-card border border-border w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="p-8">
+                <div class="flex justify-between items-start mb-6">
+                    <h3 id="modal-title" class="text-2xl font-bold">Lexicon Academy</h3>
+                    <button id="close-modal" class="text-secondary hover:text-primary transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <p id="modal-synopsis" class="text-secondary leading-relaxed mb-8">
+                    Loading synopsis...
+                </p>
+                <div class="flex gap-4">
+                    <button id="modal-start-btn" class="flex-1 py-3 bg-primary text-background font-bold rounded-xl hover:opacity-90 transition-opacity">
+                        Start Adventure
+                    </button>
+                    <button id="modal-cancel-btn" class="px-6 py-3 border border-border font-bold rounded-xl hover:bg-card transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Vocab Tooltip -->
+    <div id="vocab-tooltip" class="absolute hidden z-[9999] bg-card border border-primary p-3 rounded-lg text-sm shadow-2xl max-w-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div id="tooltip-content" class="text-primary font-medium"></div>
+        <!-- Tooltip Arrow -->
+        <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-card border-r border-b border-primary rotate-45"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

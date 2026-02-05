@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VocabFlow Admin - Story Architect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#000000',
+                        card: '#09090b',
+                        border: '#27272a',
+                        primary: '#ffffff',
+                        secondary: '#a1a1aa',
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+    <style>
+        body { -webkit-font-smoothing: antialiased; }
+        .dot-grid {
+            background-color: #000000;
+            background-image: radial-gradient(#27272a 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #000000; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+        .node-card { touch-action: none; user-select: none; z-index: 10; position: absolute; }
+        .tab-content { display: none; }
+        .tab-content.active { display: flex; }
+        
+        .port {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #27272a;
+            border: 2px solid #a1a1aa;
+            cursor: crosshair;
+            transition: all 0.2s;
+        }
+        .port:hover { background: #ffffff; border-color: #ffffff; transform: scale(1.2); }
+        .port.connected { background: #ffffff; border-color: #ffffff; }
+
+        #connection-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body class="bg-background text-primary font-sans flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-[320px] border-r border-border bg-background flex-shrink-0 flex flex-col">
+        <div class="p-6 border-b border-border">
+            <h1 class="text-xl font-bold tracking-tight">Admin Portal</h1>
+        </div>
+        
+        <nav class="flex-1 p-4 space-y-4 overflow-y-auto">
+            <div class="space-y-1">
+                <button onclick="switchTab('architect')" id="btn-architect" class="tab-btn w-full flex items-center space-x-3 p-3 rounded-lg bg-card text-primary transition-all duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <span>Architect</span>
+                </button>
+            </div>
+
+            <!-- Saved Stories -->
+            <div class="pt-4 border-t border-border">
+                <h3 class="text-xs font-bold text-secondary uppercase tracking-widest mb-4">Saved Stories</h3>
+                <div id="saved-stories-list" class="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                    <!-- Stories will be injected here -->
+                </div>
+            </div>
+
+            <!-- Metadata & Settings -->
+            <div class="pt-4 border-t border-border">
+                <h3 class="text-xs font-bold text-secondary uppercase tracking-widest mb-4">Story Settings</h3>
+                <div class="space-y-4">
+                    <div id="image-upload-zone" onclick="document.getElementById('file-input').click()" class="aspect-video bg-card border border-border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-all overflow-hidden group">
+                        <img id="image-preview" class="hidden w-full h-full object-cover">
+                        <div id="upload-placeholder" class="flex flex-col items-center">
+                            <svg class="w-8 h-8 text-secondary group-hover:text-primary mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            <span class="text-[10px] text-secondary group-hover:text-primary font-bold uppercase tracking-wider">Upload Cover</span>
+                        </div>
+                        <input type="file" id="file-input" class="hidden" accept="image/*" onchange="handleImageUpload(this)">
+                    </div>
+
+                    <div class="space-y-1">
+                        <input type="text" id="story-title" placeholder="Untitled Adventure" class="w-full bg-transparent border-none p-0 text-xl font-bold focus:outline-none placeholder:text-secondary/30">
+                        <p class="text-[10px] text-secondary font-medium uppercase tracking-widest">Click to edit title</p>
+                    </div>
+
+                    <textarea id="story-synopsis" placeholder="Story Synopsis" class="w-full bg-card border border-border p-3 rounded-lg text-sm focus:outline-none focus:border-primary min-h-[80px] resize-none"></textarea>
+                </div>
+            </div>
+        </nav>
+
+        <div class="p-4 border-t border-border space-y-2">
+            <button onclick="resetArchitect()" class="w-full py-2.5 border border-border text-secondary text-xs font-bold rounded-lg hover:text-red-500 transition-all">
+                New Project
+            </button>
+            <button onclick="addNode()" class="w-full py-2.5 border border-border text-primary font-bold rounded-lg hover:bg-card transition-all">
+                Add Node
+            </button>
+            <button onclick="publishStory()" class="w-full py-2.5 bg-primary text-background font-bold rounded-lg hover:opacity-90 transition-opacity">
+                Publish to Game
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 relative overflow-hidden">
+        <div id="architect" class="tab-content active absolute inset-0 dot-grid overflow-hidden">
+            <svg id="connection-layer">
+                <!-- Cleared and redrawn in JS -->
+            </svg>
+            <div id="canvas" class="absolute inset-0"></div>
+        </div>
+    </main>
+
+    <!-- Node Template -->
+    <template id="node-template">
+        <div class="node-card bg-card border border-border w-80 rounded-xl shadow-2xl flex flex-col">
+            <div class="p-3 border-b border-border bg-background/50 flex justify-between items-center handle cursor-move">
+                <input type="text" placeholder="Node ID" class="node-id bg-transparent text-sm font-bold focus:outline-none w-full">
+                <button onclick="removeNode(this)" class="text-secondary hover:text-red-500 transition-colors ml-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-4 space-y-2">
+                <button onclick="tagSelection(this)" class="text-[10px] uppercase font-bold text-primary bg-border px-2 py-1 rounded hover:bg-secondary/20 transition-colors">
+                    Tag Highlighted Word
+                </button>
+                <textarea class="node-text w-full bg-background border border-border p-3 rounded-lg text-sm text-secondary focus:text-primary focus:outline-none min-h-[120px] resize-none"></textarea>
+            </div>
+            <div class="p-4 border-t border-border bg-background/30 space-y-4">
+                <div class="choice-row flex items-center space-x-2">
+                    <input type="text" placeholder="Choice 1" class="choice-label flex-1 bg-background border border-border p-2 rounded text-xs focus:outline-none">
+                    <div class="port" data-choice="0" onmousedown="startConnection(event, this)"></div>
+                </div>
+                <div class="choice-row flex items-center space-x-2">
+                    <input type="text" placeholder="Choice 2" class="choice-label flex-1 bg-background border border-border p-2 rounded text-xs focus:outline-none">
+                    <div class="port" data-choice="1" onmousedown="startConnection(event, this)"></div>
+                </div>
+                <div class="choice-row flex items-center space-x-2">
+                    <input type="text" placeholder="Choice 3" class="choice-label flex-1 bg-background border border-border p-2 rounded text-xs focus:outline-none">
+                    <div class="port" data-choice="2" onmousedown="startConnection(event, this)"></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        let connections = []; // { fromNode, fromChoice, toNode, fromNodeId, toNodeId }
+        let currentConn = null;
+        let uploadedImageBase64 = "";
+        let currentStoryId = null;
+
+        function handleImageUpload(input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImageBase64 = e.target.result;
+                    updatePreview();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function updatePreview() {
+            const preview = document.getElementById('image-preview');
+            const placeholder = document.getElementById('upload-placeholder');
+            if (uploadedImageBase64) {
+                preview.src = uploadedImageBase64;
+                preview.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            } else {
+                preview.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+            }
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        function addNode(x = 100, y = 100, data = null) {
+            const clone = document.getElementById('node-template').content.cloneNode(true);
+            const node = clone.querySelector('.node-card');
+            
+            node.style.left = x + 'px';
+            node.style.top = y + 'px';
+            
+            const idInput = node.querySelector('.node-id');
+            if (data) {
+                idInput.value = data.id || '';
+                idInput.dataset.oldValue = data.id || '';
+                node.querySelector('.node-text').value = data.text || '';
+                const labels = node.querySelectorAll('.choice-label');
+                if (data.choices) {
+                    data.choices.forEach((c, i) => { if(labels[i]) labels[i].value = c.text; });
+                }
+            }
+
+            // Fix 2: Dynamic ID Update logic
+            idInput.addEventListener('change', (e) => {
+                const newValue = e.target.value;
+                const oldValue = e.target.dataset.oldValue;
+                
+                connections.forEach(conn => {
+                    if (conn.fromNodeId === oldValue) conn.fromNodeId = newValue;
+                    if (conn.toNodeId === oldValue) conn.toNodeId = newValue;
+                });
+                e.target.dataset.oldValue = newValue;
+            });
+            
+            node.addEventListener('mouseup', () => {
+                if (currentConn) endConnection(node);
+            });
+
+            document.getElementById('canvas').appendChild(node);
+            initDraggable(node);
+            return node;
+        }
+
+        function resetArchitect() {
+            document.getElementById('canvas').innerHTML = '';
+            connections = [];
+            uploadedImageBase64 = "";
+            currentStoryId = null;
+            document.getElementById('story-title').value = "";
+            document.getElementById('story-synopsis').value = "";
+            updatePreview();
+            drawLines();
+        }
+
+        function removeNode(btn) {
+            const node = btn.closest('.node-card');
+            connections = connections.filter(c => c.fromNode !== node && c.toNode !== node);
+            node.remove();
+            drawLines();
+        }
+
+        function tagSelection(btn) {
+            const textarea = btn.nextElementSibling;
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selectedText = textarea.value.substring(start, end);
+            if (!selectedText) return alert("Highlight a word first!");
+            const definition = prompt(`Enter definition for "${selectedText}":`);
+            if (definition) {
+                const replacement = `[${selectedText}|${definition}]`;
+                textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
+            }
+        }
+
+        function startConnection(e, port) {
+            e.stopPropagation();
+            const node = port.closest('.node-card');
+            currentConn = { fromNode: node, fromChoice: port.dataset.choice, portEl: port };
+            port.classList.add('bg-primary');
+        }
+
+        function endConnection(targetNode) {
+            if (!currentConn || currentConn.fromNode === targetNode) {
+                if(currentConn) currentConn.portEl.classList.remove('bg-primary');
+                currentConn = null;
+                return;
+            }
+            const fromId = currentConn.fromNode.querySelector('.node-id').value;
+            const toId = targetNode.querySelector('.node-id').value;
+
+            // Remove existing connection from this choice
+            connections = connections.filter(c => !(c.fromNode === currentConn.fromNode && c.fromChoice === currentConn.fromChoice));
+            
+            connections.push({ 
+                fromNode: currentConn.fromNode, 
+                fromChoice: currentConn.fromChoice, 
+                toNode: targetNode,
+                fromNodeId: fromId,
+                toNodeId: toId
+            });
+
+            currentConn.portEl.classList.add('connected');
+            currentConn.portEl.classList.remove('bg-primary');
+            currentConn = null;
+            drawLines();
+        }
+
+        function drawLines() {
+            const svg = document.getElementById('connection-layer');
+            
+            // Fix 1: Properly clear the SVG content before redrawing
+            svg.innerHTML = `
+                <defs>
+                    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#a1a1aa" />
+                    </marker>
+                </defs>
+            `;
+
+            connections.forEach(conn => {
+                const port = conn.fromNode.querySelectorAll('.port')[conn.fromChoice];
+                const portRect = port.getBoundingClientRect();
+                const targetRect = conn.toNode.getBoundingClientRect();
+                const canvasRect = document.getElementById('architect').getBoundingClientRect();
+
+                const x1 = portRect.left - canvasRect.left + 6;
+                const y1 = portRect.top - canvasRect.top + 6;
+                const x2 = targetRect.left - canvasRect.left + (targetRect.width / 2);
+                const y2 = targetRect.top - canvasRect.top;
+
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                const curvePower = Math.abs(y2 - y1) * 0.5;
+                const d = `M ${x1} ${y1} C ${x1} ${y1 + curvePower} ${x2} ${y2 - curvePower} ${x2} ${y2}`;
+                
+                path.setAttribute("d", d); path.setAttribute("stroke", "#a1a1aa"); path.setAttribute("stroke-width", "2");
+                path.setAttribute("fill", "none"); path.setAttribute("marker-end", "url(#arrow)");
+                svg.appendChild(path);
+            });
+        }
+
+        function initDraggable(el) {
+            interact(el).draggable({
+                allowFrom: '.handle',
+                listeners: {
+                    move (event) {
+                        const target = event.target;
+                        const x = (parseFloat(target.style.left) || 0) + event.dx;
+                        const y = (parseFloat(target.style.top) || 0) + event.dy;
+                        target.style.left = x + 'px'; target.style.top = y + 'px';
+                        drawLines();
+                    }
+                }
+            });
+        }
+
+        function publishStory() {
+            const title = document.getElementById('story-title').value || "Untitled Adventure";
+            const thumbnail = uploadedImageBase64;
+            const synopsis = document.getElementById('story-synopsis').value || "A custom adventure created in the Architect.";
+            const nodes = document.querySelectorAll('.node-card');
+            const nodesData = {};
+
+            nodes.forEach(node => {
+                const id = node.querySelector('.node-id').value;
+                if (!id) return;
+                const text = node.querySelector('.node-text').value;
+                const choices = [];
+                node.querySelectorAll('.choice-row').forEach((row, idx) => {
+                    const label = row.querySelector('.choice-label').value;
+                    const conn = connections.find(c => c.fromNode === node && c.fromChoice == idx);
+                    if (label) {
+                        // Use updated IDs from connection object
+                        const nextId = conn ? conn.toNodeId : 'start';
+                        choices.push({ text: label, next: nextId });
+                    }
+                });
+                nodesData[id] = { text, choices, x: parseFloat(node.style.left), y: parseFloat(node.style.top) };
+            });
+
+            const storyId = currentStoryId || 'custom_' + Date.now();
+            const newStory = { id: storyId, title, thumbnail, synopsis, data: nodesData };
+
+            // Fix 4: LocalStorage Merge Logic
+            let allStories = {};
+            try { allStories = JSON.parse(localStorage.getItem('admin_stories') || '{}'); } catch (e) {}
+            allStories[storyId] = newStory;
+            localStorage.setItem('admin_stories', JSON.stringify(allStories));
+            
+            currentStoryId = storyId;
+            renderSavedStories();
+            alert(`Story "${title}" published!`);
+        }
+
+        function renderSavedStories() {
+            const list = document.getElementById('saved-stories-list');
+            list.innerHTML = '';
+            let allStories = {};
+            try { allStories = JSON.parse(localStorage.getItem('admin_stories') || '{}'); } catch (e) {}
+            
+            Object.values(allStories).forEach(story => {
+                const item = document.createElement('div');
+                item.className = "p-2 bg-card border border-border rounded text-xs cursor-pointer hover:border-primary transition-all flex justify-between items-center group";
+                item.innerHTML = `
+                    <span onclick="loadStory('${story.id}')" class="flex-1 truncate">${story.title}</span>
+                    <button onclick="deleteStory('${story.id}')" class="opacity-0 group-hover:opacity-100 text-secondary hover:text-red-500 ml-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function loadStory(id) {
+            let allStories = {};
+            try { allStories = JSON.parse(localStorage.getItem('admin_stories') || '{}'); } catch (e) {}
+            const story = allStories[id];
+            if (!story) return;
+
+            resetArchitect();
+            currentStoryId = story.id;
+            document.getElementById('story-title').value = story.title;
+            document.getElementById('story-synopsis').value = story.synopsis;
+            uploadedImageBase64 = story.thumbnail;
+            updatePreview();
+
+            const nodeMap = {};
+            // Recreate Nodes
+            Object.entries(story.data).forEach(([nodeId, data]) => {
+                const nodeEl = addNode(data.x || 100, data.y || 100, { id: nodeId, text: data.text, choices: data.choices });
+                nodeMap[nodeId] = nodeEl;
+            });
+
+            // Reconnect using stored choice logic
+            Object.entries(story.data).forEach(([fromId, data]) => {
+                if (data.choices) {
+                    data.choices.forEach((choice, idx) => {
+                        if (choice.next && nodeMap[choice.next] && nodeMap[fromId]) {
+                            const fromNode = nodeMap[fromId];
+                            const toNode = nodeMap[choice.next];
+                            connections.push({ 
+                                fromNode, 
+                                fromChoice: idx, 
+                                toNode,
+                                fromNodeId: fromId,
+                                toNodeId: choice.next
+                            });
+                            fromNode.querySelectorAll('.port')[idx].classList.add('connected');
+                        }
+                    });
+                }
+            });
+            drawLines();
+        }
+
+        function deleteStory(id) {
+            if(!confirm("Delete this story?")) return;
+            let allStories = {};
+            try { allStories = JSON.parse(localStorage.getItem('admin_stories') || '{}'); } catch (e) {}
+            delete allStories[id];
+            localStorage.setItem('admin_stories', JSON.stringify(allStories));
+            renderSavedStories();
+            if(currentStoryId === id) resetArchitect();
+        }
+
+        renderSavedStories();
+        addNode();
+    </script>
+</body>
+</html>
