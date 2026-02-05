@@ -1,4 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     // Elements
     const dashboardView = document.getElementById('dashboard-view');
     const adventureView = document.getElementById('adventure-view');
@@ -69,22 +78,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const adminStories = JSON.parse(adminStoriesRaw);
             
             Object.values(adminStories).forEach(story => {
+                if (!story || typeof story !== 'object' || !story.id || !story.data || typeof story.data !== 'object') {
+                    return;
+                }
+
+                const safeTitle = escapeHtml(story.title || 'Untitled Adventure');
+                const synopsis = typeof story.synopsis === 'string' ? story.synopsis : 'A custom story.';
+                const safeSynopsis = escapeHtml(synopsis);
                 const card = document.createElement('div');
                 card.className = "story-card bg-card border border-border rounded-2xl p-6 flex flex-col hover:border-secondary transition-all duration-300 group cursor-pointer";
-                card.setAttribute('data-title', story.title);
-                card.setAttribute('data-synopsis', story.synopsis);
+                card.setAttribute('data-title', story.title || 'Untitled Adventure');
+                card.setAttribute('data-synopsis', synopsis);
                 card.setAttribute('data-story-id', story.id);
                 
                 const thumbHtml = story.thumbnail 
-                    ? `<img src="${story.thumbnail}" class="w-full h-full object-cover rounded-xl" alt="${story.title}">`
+                    ? `<img src="${story.thumbnail}" class="w-full h-full object-cover rounded-xl" alt="${safeTitle}">`
                     : `<span class="text-xs font-bold text-secondary uppercase tracking-widest">Architect Story</span>`;
 
                 card.innerHTML = `
                     <div class="aspect-video bg-[#18181b] rounded-xl mb-6 flex items-center justify-center overflow-hidden">
                         ${thumbHtml}
                     </div>
-                    <h3 class="text-xl font-bold mb-2">${story.title}</h3>
-                    <p class="text-secondary text-sm leading-relaxed mb-6 flex-1">${story.synopsis.substring(0, 100)}...</p>
+                    <h3 class="text-xl font-bold mb-2">${safeTitle}</h3>
+                    <p class="text-secondary text-sm leading-relaxed mb-6 flex-1">${safeSynopsis.substring(0, 100)}...</p>
                     <button class="start-btn w-full py-2.5 border border-border rounded-xl text-sm font-bold hover:bg-primary hover:text-background transition-all">Start Adventure</button>
                 `;
 
@@ -131,22 +147,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderParagraph(data.text);
         
-        data.choices.forEach(choice => {
+        (data.choices || []).forEach(choice => {
             const btn = document.createElement('button');
             btn.className = "w-full text-left bg-card border border-border p-4 rounded-xl text-secondary hover:border-white hover:text-primary transition-all duration-300 group flex justify-between items-center";
             btn.innerHTML = `
-                <span>${choice.text}</span>
+                <span>${escapeHtml(choice.text || 'Continue')}</span>
                 <svg class="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
             `;
-            btn.onclick = () => loadPath(choice.next);
+            btn.onclick = () => loadPath(choice.next || 'start');
             choiceContainer.appendChild(btn);
         });
     }
 
     function renderParagraph(text) {
         const regex = /\[(.*?)\|(.*?)\]/g;
-        const html = text.replace(regex, (match, word, definition) => {
-            return `<span class="hidden-word border-b border-dashed border-zinc-600 cursor-pointer hover:text-white transition-colors" data-def="${definition}">${word}</span>`;
+        const html = String(text || '').replace(regex, (match, word, definition) => {
+            return `<span class="hidden-word border-b border-dashed border-zinc-600 cursor-pointer hover:text-white transition-colors" data-def="${escapeHtml(definition)}">${escapeHtml(word)}</span>`;
         });
 
         storyText.innerHTML = `<p class="animate-in fade-in slide-in-from-bottom-4 duration-1000">${html}</p>`;

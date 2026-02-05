@@ -168,6 +168,23 @@
         let uploadedImageBase64 = "";
         let currentStoryId = null;
 
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function normalizeNodeId(rawValue) {
+            return String(rawValue || '')
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, '_')
+                .replace(/[^a-z0-9_-]/g, '');
+        }
+
         function handleImageUpload(input) {
             const file = input.files[0];
             if (file) {
@@ -218,8 +235,9 @@
 
             // Fix 2: Dynamic ID Update logic
             idInput.addEventListener('change', (e) => {
-                const newValue = e.target.value;
+                const newValue = normalizeNodeId(e.target.value);
                 const oldValue = e.target.dataset.oldValue;
+                e.target.value = newValue;
                 
                 connections.forEach(conn => {
                     if (conn.fromNodeId === oldValue) conn.fromNodeId = newValue;
@@ -355,23 +373,46 @@
             const synopsis = document.getElementById('story-synopsis').value || "A custom adventure created in the Architect.";
             const nodes = document.querySelectorAll('.node-card');
             const nodesData = {};
+            const seenIds = new Set();
+            let hasErrors = false;
 
             nodes.forEach(node => {
-                const id = node.querySelector('.node-id').value;
-                if (!id) return;
+                const idInput = node.querySelector('.node-id');
+                const id = normalizeNodeId(idInput.value);
+                idInput.value = id;
+                idInput.dataset.oldValue = id;
+
+                if (!id) {
+                    hasErrors = true;
+                    idInput.classList.add('border-red-500');
+                    return;
+                }
+
+                if (seenIds.has(id)) {
+                    hasErrors = true;
+                    idInput.classList.add('border-red-500');
+                    return;
+                }
+                seenIds.add(id);
+                idInput.classList.remove('border-red-500');
+
                 const text = node.querySelector('.node-text').value;
                 const choices = [];
                 node.querySelectorAll('.choice-row').forEach((row, idx) => {
                     const label = row.querySelector('.choice-label').value;
                     const conn = connections.find(c => c.fromNode === node && c.fromChoice == idx);
                     if (label) {
-                        // Use updated IDs from connection object
-                        const nextId = conn ? conn.toNodeId : 'start';
+                        const nextId = conn ? normalizeNodeId(conn.toNodeId) : id;
                         choices.push({ text: label, next: nextId });
                     }
                 });
                 nodesData[id] = { text, choices, x: parseFloat(node.style.left), y: parseFloat(node.style.top) };
             });
+
+            if (hasErrors || Object.keys(nodesData).length === 0) {
+                alert('Please fix node IDs before publishing. IDs must be unique and non-empty.');
+                return;
+            }
 
             const storyId = currentStoryId || 'custom_' + Date.now();
             const newStory = { id: storyId, title, thumbnail, synopsis, data: nodesData };
@@ -397,8 +438,8 @@
                 const item = document.createElement('div');
                 item.className = "p-2 bg-card border border-border rounded text-xs cursor-pointer hover:border-primary transition-all flex justify-between items-center group";
                 item.innerHTML = `
-                    <span onclick="loadStory('${story.id}')" class="flex-1 truncate">${story.title}</span>
-                    <button onclick="deleteStory('${story.id}')" class="opacity-0 group-hover:opacity-100 text-secondary hover:text-red-500 ml-2">
+                    <span onclick="loadStory('${escapeHtml(story.id)}')" class="flex-1 truncate">${escapeHtml(story.title || 'Untitled Adventure')}</span>
+                    <button onclick="deleteStory('${escapeHtml(story.id)}')" class="opacity-0 group-hover:opacity-100 text-secondary hover:text-red-500 ml-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 `;
