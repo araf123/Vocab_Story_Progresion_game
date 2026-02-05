@@ -245,6 +245,23 @@
             if (changed) localStorage.setItem('admin_stories', JSON.stringify(allStories));
         }
 
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function normalizeNodeId(rawValue) {
+            return String(rawValue || '')
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, '_')
+                .replace(/[^a-z0-9_-]/g, '');
+        }
+
         function handleImageUpload(input) {
             const file = input.files[0];
             if (file) {
@@ -511,6 +528,12 @@
 
                 item.appendChild(title);
                 item.appendChild(delBtn);
+                item.innerHTML = `
+                    <span onclick="loadStory('${escapeHtml(story.id)}')" class="flex-1 truncate">${escapeHtml(story.title || 'Untitled Adventure')}</span>
+                    <button onclick="deleteStory('${escapeHtml(story.id)}')" class="opacity-0 group-hover:opacity-100 text-secondary hover:text-red-500 ml-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                `;
                 list.appendChild(item);
             });
         }
