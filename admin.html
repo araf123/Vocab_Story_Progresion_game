@@ -58,6 +58,10 @@
             pointer-events: none;
             z-index: 5;
         }
+
+        #workspace {
+            transform-origin: 0 0;
+        }
     </style>
 </head>
 <body class="bg-background text-primary font-sans flex h-screen overflow-hidden">
@@ -123,10 +127,13 @@
     <!-- Main Workspace -->
     <main class="flex-1 relative overflow-hidden">
         <div id="architect" class="tab-content active absolute inset-0 dot-grid overflow-hidden">
-            <svg id="connection-layer">
-                <!-- Cleared and redrawn in JS -->
-            </svg>
-            <div id="canvas" class="absolute inset-0"></div>
+            <div id="workspace" class="absolute top-0 left-0">
+                <svg id="connection-layer">
+                    <!-- Cleared and redrawn in JS -->
+                </svg>
+                <div id="canvas" class="absolute inset-0"></div>
+            </div>
+            <div id="zoom-indicator" class="absolute bottom-4 right-4 bg-card/90 border border-border rounded px-3 py-1 text-xs text-secondary">100%</div>
         </div>
     </main>
 
@@ -167,6 +174,90 @@
         let currentConn = null;
         let uploadedImageBase64 = "";
         let currentStoryId = null;
+        let viewportOffsetX = 0;
+        let viewportOffsetY = 0;
+        let zoomLevel = 1;
+        const MIN_ZOOM = 0.35;
+        const MAX_ZOOM = 2.5;
+        const ZOOM_STEP = 0.1;
+        const BASE_WORKSPACE_SIZE = 3200;
+        const DEFAULT_STORIES = {
+            lexicon_academy: {
+                id: 'lexicon_academy',
+                title: 'Lexicon Academy',
+                synopsis: 'Embark on your journey at the prestigious Lexicon Academy. Uncover the secrets of ancient linguistics and master the power of words to shape your destiny.',
+                thumbnail: '',
+                data: {
+                    start: {
+                        text: 'You stand before the [towering|extremely tall] gates of Lexicon Academy. A [mist|thin fog] clings to the ivy, obscuring the path ahead. The [ominous|threatening] silence is broken only by the distant [peal|loud ringing] of a bell.',
+                        choices: [
+                            { text: 'Approach the Great Gates', next: 'gates' },
+                            { text: 'Investigate the Ivy', next: 'ivy' },
+                            { text: 'Listen to the Bell', next: 'bell' }
+                        ]
+                    },
+                    gates: { text: 'The gates are [unyielding|impossible to move].', choices: [{ text: 'Return', next: 'start' }] },
+                    ivy: { text: 'The ivy is [verdant|bright green].', choices: [{ text: 'Return', next: 'start' }] },
+                    bell: { text: 'The bell is [resonant|deep and full].', choices: [{ text: 'Return', next: 'start' }] }
+                }
+            },
+            the_library: {
+                id: 'the_library',
+                title: 'The Library',
+                synopsis: 'Explore the endless corridors of the Great Library. Find forgotten scrolls and expand your vocabulary through ancient texts.',
+                thumbnail: '',
+                data: { start: { text: 'Rows of [dusty|covered in fine powder] tomes tower around you.', choices: [{ text: 'Keep exploring', next: 'start' }] } }
+            },
+            the_science_lab: {
+                id: 'the_science_lab',
+                title: 'The Science Lab',
+                synopsis: 'Master technical terminology and scientific discourse in the state-of-the-art research facility of the Lexicon Academy.',
+                thumbnail: '',
+                data: { start: { text: 'The lab is [meticulous|very careful] and precise.', choices: [{ text: 'Repeat drill', next: 'start' }] } }
+            },
+            training_grounds: {
+                id: 'training_grounds',
+                title: 'The Training Grounds',
+                synopsis: "Sharpen your skills with rapid-fire exercises and competitive word-building challenges against the Academy's elite.",
+                thumbnail: '',
+                data: { start: { text: 'You begin a [rapid|very fast] vocabulary challenge.', choices: [{ text: 'Try again', next: 'start' }] } }
+            }
+        };
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function normalizeNodeId(rawValue) {
+            return String(rawValue || '')
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, '_')
+                .replace(/[^a-z0-9_-]/g, '');
+        }
+
+        function getAllStories() {
+            let allStories = {};
+            try { allStories = JSON.parse(localStorage.getItem('admin_stories') || '{}') || {}; } catch (e) {}
+            return allStories;
+        }
+
+        function seedDefaultStories() {
+            const allStories = getAllStories();
+            let changed = false;
+            Object.entries(DEFAULT_STORIES).forEach(([id, story]) => {
+                if (!allStories[id]) {
+                    allStories[id] = story;
+                    changed = true;
+                }
+            });
+            if (changed) localStorage.setItem('admin_stories', JSON.stringify(allStories));
+        }
 
         function handleImageUpload(input) {
             const file = input.files[0];
@@ -178,6 +269,97 @@
                 };
                 reader.readAsDataURL(file);
             }
+        }
+
+        function getWorkspaceSizeForZoom() {
+            const architect = document.getElementById('architect');
+            const minWidth = architect.clientWidth / zoomLevel;
+            const minHeight = architect.clientHeight / zoomLevel;
+            return {
+                width: Math.max(BASE_WORKSPACE_SIZE, Math.ceil(minWidth + 800)),
+                height: Math.max(BASE_WORKSPACE_SIZE, Math.ceil(minHeight + 800))
+            };
+        }
+
+        function updateWorkspaceTransform() {
+            const workspace = document.getElementById('workspace');
+            const indicator = document.getElementById('zoom-indicator');
+            const architect = document.getElementById('architect');
+            const { width, height } = getWorkspaceSizeForZoom();
+
+            workspace.style.width = `${width}px`;
+            workspace.style.height = `${height}px`;
+            workspace.style.transform = `translate(${viewportOffsetX}px, ${viewportOffsetY}px) scale(${zoomLevel})`;
+
+            if (indicator) {
+                indicator.textContent = `${Math.round(zoomLevel * 100)}%`;
+            }
+
+            const gridSize = Math.max(8, 20 * zoomLevel);
+            architect.style.backgroundSize = `${gridSize}px ${gridSize}px`;
+
+            drawLines();
+        }
+
+        function zoomWorkspace(deltaY, clientX, clientY) {
+            const oldZoom = zoomLevel;
+            if (deltaY > 0) zoomLevel = Math.max(MIN_ZOOM, zoomLevel - ZOOM_STEP);
+            else zoomLevel = Math.min(MAX_ZOOM, zoomLevel + ZOOM_STEP);
+            if (oldZoom === zoomLevel) return;
+
+            const architectRect = document.getElementById('architect').getBoundingClientRect();
+            const focalX = clientX - architectRect.left;
+            const focalY = clientY - architectRect.top;
+
+            const worldX = (focalX - viewportOffsetX) / oldZoom;
+            const worldY = (focalY - viewportOffsetY) / oldZoom;
+
+            viewportOffsetX = focalX - worldX * zoomLevel;
+            viewportOffsetY = focalY - worldY * zoomLevel;
+
+            updateWorkspaceTransform();
+        }
+
+        function panWorkspace(dx, dy) {
+            viewportOffsetX += dx;
+            viewportOffsetY += dy;
+            updateWorkspaceTransform();
+        }
+
+        function initWorkspaceControls() {
+            const architect = document.getElementById('architect');
+            architect.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                zoomWorkspace(e.deltaY, e.clientX, e.clientY);
+            }, { passive: false });
+
+            let isPanning = false;
+            let lastX = 0;
+            let lastY = 0;
+
+            architect.addEventListener('mousedown', (e) => {
+                if (e.target.closest('.node-card')) return;
+                isPanning = true;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                architect.style.cursor = 'grabbing';
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isPanning) return;
+                const dx = e.clientX - lastX;
+                const dy = e.clientY - lastY;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                panWorkspace(dx, dy);
+            });
+
+            window.addEventListener('mouseup', () => {
+                isPanning = false;
+                architect.style.cursor = 'default';
+            });
+
+            updateWorkspaceTransform();
         }
 
         function updatePreview() {
@@ -218,8 +400,9 @@
 
             // Fix 2: Dynamic ID Update logic
             idInput.addEventListener('change', (e) => {
-                const newValue = e.target.value;
+                const newValue = normalizeNodeId(e.target.value);
                 const oldValue = e.target.dataset.oldValue;
+                e.target.value = newValue;
                 
                 connections.forEach(conn => {
                     if (conn.fromNodeId === oldValue) conn.fromNodeId = newValue;
@@ -303,6 +486,9 @@
 
         function drawLines() {
             const svg = document.getElementById('connection-layer');
+            const workspace = document.getElementById('workspace');
+            svg.setAttribute('width', workspace.offsetWidth);
+            svg.setAttribute('height', workspace.offsetHeight);
             
             // Fix 1: Properly clear the SVG content before redrawing
             svg.innerHTML = `
@@ -315,14 +501,17 @@
 
             connections.forEach(conn => {
                 const port = conn.fromNode.querySelectorAll('.port')[conn.fromChoice];
-                const portRect = port.getBoundingClientRect();
-                const targetRect = conn.toNode.getBoundingClientRect();
-                const canvasRect = document.getElementById('architect').getBoundingClientRect();
+                if (!port) return;
 
-                const x1 = portRect.left - canvasRect.left + 6;
-                const y1 = portRect.top - canvasRect.top + 6;
-                const x2 = targetRect.left - canvasRect.left + (targetRect.width / 2);
-                const y2 = targetRect.top - canvasRect.top;
+                const fromNodeX = parseFloat(conn.fromNode.style.left) || 0;
+                const fromNodeY = parseFloat(conn.fromNode.style.top) || 0;
+                const toNodeX = parseFloat(conn.toNode.style.left) || 0;
+                const toNodeY = parseFloat(conn.toNode.style.top) || 0;
+
+                const x1 = fromNodeX + port.offsetLeft + (port.offsetWidth / 2);
+                const y1 = fromNodeY + port.offsetTop + (port.offsetHeight / 2);
+                const x2 = toNodeX + (conn.toNode.offsetWidth / 2);
+                const y2 = toNodeY;
 
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                 const curvePower = Math.abs(y2 - y1) * 0.5;
@@ -340,8 +529,8 @@
                 listeners: {
                     move (event) {
                         const target = event.target;
-                        const x = (parseFloat(target.style.left) || 0) + event.dx;
-                        const y = (parseFloat(target.style.top) || 0) + event.dy;
+                        const x = (parseFloat(target.style.left) || 0) + (event.dx / zoomLevel);
+                        const y = (parseFloat(target.style.top) || 0) + (event.dy / zoomLevel);
                         target.style.left = x + 'px'; target.style.top = y + 'px';
                         drawLines();
                     }
@@ -355,23 +544,46 @@
             const synopsis = document.getElementById('story-synopsis').value || "A custom adventure created in the Architect.";
             const nodes = document.querySelectorAll('.node-card');
             const nodesData = {};
+            const seenIds = new Set();
+            let hasErrors = false;
 
             nodes.forEach(node => {
-                const id = node.querySelector('.node-id').value;
-                if (!id) return;
+                const idInput = node.querySelector('.node-id');
+                const id = normalizeNodeId(idInput.value);
+                idInput.value = id;
+                idInput.dataset.oldValue = id;
+
+                if (!id) {
+                    hasErrors = true;
+                    idInput.classList.add('border-red-500');
+                    return;
+                }
+
+                if (seenIds.has(id)) {
+                    hasErrors = true;
+                    idInput.classList.add('border-red-500');
+                    return;
+                }
+                seenIds.add(id);
+                idInput.classList.remove('border-red-500');
+
                 const text = node.querySelector('.node-text').value;
                 const choices = [];
                 node.querySelectorAll('.choice-row').forEach((row, idx) => {
                     const label = row.querySelector('.choice-label').value;
                     const conn = connections.find(c => c.fromNode === node && c.fromChoice == idx);
                     if (label) {
-                        // Use updated IDs from connection object
-                        const nextId = conn ? conn.toNodeId : 'start';
+                        const nextId = conn ? normalizeNodeId(conn.toNodeId) : id;
                         choices.push({ text: label, next: nextId });
                     }
                 });
                 nodesData[id] = { text, choices, x: parseFloat(node.style.left), y: parseFloat(node.style.top) };
             });
+
+            if (hasErrors || Object.keys(nodesData).length === 0) {
+                alert('Please fix node IDs before publishing. IDs must be unique and non-empty.');
+                return;
+            }
 
             const storyId = currentStoryId || 'custom_' + Date.now();
             const newStory = { id: storyId, title, thumbnail, synopsis, data: nodesData };
@@ -390,18 +602,26 @@
         function renderSavedStories() {
             const list = document.getElementById('saved-stories-list');
             list.innerHTML = '';
-            let allStories = {};
-            try { allStories = JSON.parse(localStorage.getItem('admin_stories') || '{}'); } catch (e) {}
+            const allStories = getAllStories();
             
             Object.values(allStories).forEach(story => {
                 const item = document.createElement('div');
                 item.className = "p-2 bg-card border border-border rounded text-xs cursor-pointer hover:border-primary transition-all flex justify-between items-center group";
-                item.innerHTML = `
-                    <span onclick="loadStory('${story.id}')" class="flex-1 truncate">${story.title}</span>
-                    <button onclick="deleteStory('${story.id}')" class="opacity-0 group-hover:opacity-100 text-secondary hover:text-red-500 ml-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                `;
+                const title = document.createElement('span');
+                title.className = 'flex-1 truncate';
+                title.textContent = story.title || 'Untitled Adventure';
+                title.addEventListener('click', () => loadStory(story.id));
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'opacity-0 group-hover:opacity-100 text-secondary hover:text-red-500 ml-2';
+                delBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteStory(story.id);
+                });
+
+                item.appendChild(title);
+                item.appendChild(delBtn);
                 list.appendChild(item);
             });
         }
@@ -458,6 +678,8 @@
             if(currentStoryId === id) resetArchitect();
         }
 
+        seedDefaultStories();
+        initWorkspaceControls();
         renderSavedStories();
         addNode();
     </script>
