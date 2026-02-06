@@ -58,6 +58,10 @@
             pointer-events: none;
             z-index: 5;
         }
+
+        #workspace {
+            transform-origin: 0 0;
+        }
     </style>
 </head>
 <body class="bg-background text-primary font-sans flex h-screen overflow-hidden">
@@ -123,10 +127,13 @@
     <!-- Main Workspace -->
     <main class="flex-1 relative overflow-hidden">
         <div id="architect" class="tab-content active absolute inset-0 dot-grid overflow-hidden">
-            <svg id="connection-layer">
-                <!-- Cleared and redrawn in JS -->
-            </svg>
-            <div id="canvas" class="absolute inset-0"></div>
+            <div id="workspace" class="absolute top-0 left-0">
+                <svg id="connection-layer">
+                    <!-- Cleared and redrawn in JS -->
+                </svg>
+                <div id="canvas" class="absolute inset-0"></div>
+            </div>
+            <div id="zoom-indicator" class="absolute bottom-4 right-4 bg-card/90 border border-border rounded px-3 py-1 text-xs text-secondary">100%</div>
         </div>
     </main>
 
@@ -167,6 +174,13 @@
         let currentConn = null;
         let uploadedImageBase64 = "";
         let currentStoryId = null;
+        let viewportOffsetX = 0;
+        let viewportOffsetY = 0;
+        let zoomLevel = 1;
+        const MIN_ZOOM = 0.35;
+        const MAX_ZOOM = 2.5;
+        const ZOOM_STEP = 0.1;
+        const BASE_WORKSPACE_SIZE = 3200;
         const DEFAULT_STORIES = {
             lexicon_academy: {
                 id: 'lexicon_academy',
@@ -272,6 +286,97 @@
                 };
                 reader.readAsDataURL(file);
             }
+        }
+
+        function getWorkspaceSizeForZoom() {
+            const architect = document.getElementById('architect');
+            const minWidth = architect.clientWidth / zoomLevel;
+            const minHeight = architect.clientHeight / zoomLevel;
+            return {
+                width: Math.max(BASE_WORKSPACE_SIZE, Math.ceil(minWidth + 800)),
+                height: Math.max(BASE_WORKSPACE_SIZE, Math.ceil(minHeight + 800))
+            };
+        }
+
+        function updateWorkspaceTransform() {
+            const workspace = document.getElementById('workspace');
+            const indicator = document.getElementById('zoom-indicator');
+            const architect = document.getElementById('architect');
+            const { width, height } = getWorkspaceSizeForZoom();
+
+            workspace.style.width = `${width}px`;
+            workspace.style.height = `${height}px`;
+            workspace.style.transform = `translate(${viewportOffsetX}px, ${viewportOffsetY}px) scale(${zoomLevel})`;
+
+            if (indicator) {
+                indicator.textContent = `${Math.round(zoomLevel * 100)}%`;
+            }
+
+            const gridSize = Math.max(8, 20 * zoomLevel);
+            architect.style.backgroundSize = `${gridSize}px ${gridSize}px`;
+
+            drawLines();
+        }
+
+        function zoomWorkspace(deltaY, clientX, clientY) {
+            const oldZoom = zoomLevel;
+            if (deltaY > 0) zoomLevel = Math.max(MIN_ZOOM, zoomLevel - ZOOM_STEP);
+            else zoomLevel = Math.min(MAX_ZOOM, zoomLevel + ZOOM_STEP);
+            if (oldZoom === zoomLevel) return;
+
+            const architectRect = document.getElementById('architect').getBoundingClientRect();
+            const focalX = clientX - architectRect.left;
+            const focalY = clientY - architectRect.top;
+
+            const worldX = (focalX - viewportOffsetX) / oldZoom;
+            const worldY = (focalY - viewportOffsetY) / oldZoom;
+
+            viewportOffsetX = focalX - worldX * zoomLevel;
+            viewportOffsetY = focalY - worldY * zoomLevel;
+
+            updateWorkspaceTransform();
+        }
+
+        function panWorkspace(dx, dy) {
+            viewportOffsetX += dx;
+            viewportOffsetY += dy;
+            updateWorkspaceTransform();
+        }
+
+        function initWorkspaceControls() {
+            const architect = document.getElementById('architect');
+            architect.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                zoomWorkspace(e.deltaY, e.clientX, e.clientY);
+            }, { passive: false });
+
+            let isPanning = false;
+            let lastX = 0;
+            let lastY = 0;
+
+            architect.addEventListener('mousedown', (e) => {
+                if (e.target.closest('.node-card')) return;
+                isPanning = true;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                architect.style.cursor = 'grabbing';
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isPanning) return;
+                const dx = e.clientX - lastX;
+                const dy = e.clientY - lastY;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                panWorkspace(dx, dy);
+            });
+
+            window.addEventListener('mouseup', () => {
+                isPanning = false;
+                architect.style.cursor = 'default';
+            });
+
+            updateWorkspaceTransform();
         }
 
         function updatePreview() {
@@ -398,6 +503,9 @@
 
         function drawLines() {
             const svg = document.getElementById('connection-layer');
+            const workspace = document.getElementById('workspace');
+            svg.setAttribute('width', workspace.offsetWidth);
+            svg.setAttribute('height', workspace.offsetHeight);
             
             // Fix 1: Properly clear the SVG content before redrawing
             svg.innerHTML = `
@@ -410,14 +518,17 @@
 
             connections.forEach(conn => {
                 const port = conn.fromNode.querySelectorAll('.port')[conn.fromChoice];
-                const portRect = port.getBoundingClientRect();
-                const targetRect = conn.toNode.getBoundingClientRect();
-                const canvasRect = document.getElementById('architect').getBoundingClientRect();
+                if (!port) return;
 
-                const x1 = portRect.left - canvasRect.left + 6;
-                const y1 = portRect.top - canvasRect.top + 6;
-                const x2 = targetRect.left - canvasRect.left + (targetRect.width / 2);
-                const y2 = targetRect.top - canvasRect.top;
+                const fromNodeX = parseFloat(conn.fromNode.style.left) || 0;
+                const fromNodeY = parseFloat(conn.fromNode.style.top) || 0;
+                const toNodeX = parseFloat(conn.toNode.style.left) || 0;
+                const toNodeY = parseFloat(conn.toNode.style.top) || 0;
+
+                const x1 = fromNodeX + port.offsetLeft + (port.offsetWidth / 2);
+                const y1 = fromNodeY + port.offsetTop + (port.offsetHeight / 2);
+                const x2 = toNodeX + (conn.toNode.offsetWidth / 2);
+                const y2 = toNodeY;
 
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                 const curvePower = Math.abs(y2 - y1) * 0.5;
@@ -435,8 +546,8 @@
                 listeners: {
                     move (event) {
                         const target = event.target;
-                        const x = (parseFloat(target.style.left) || 0) + event.dx;
-                        const y = (parseFloat(target.style.top) || 0) + event.dy;
+                        const x = (parseFloat(target.style.left) || 0) + (event.dx / zoomLevel);
+                        const y = (parseFloat(target.style.top) || 0) + (event.dy / zoomLevel);
                         target.style.left = x + 'px'; target.style.top = y + 'px';
                         drawLines();
                     }
@@ -591,6 +702,7 @@
         }
 
         seedDefaultStories();
+        initWorkspaceControls();
         renderSavedStories();
         addNode();
     </script>
