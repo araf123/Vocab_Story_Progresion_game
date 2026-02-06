@@ -145,6 +145,38 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const parsed = JSON.parse(localStorage.getItem('admin_stories') || '{}');
             return parsed && typeof parsed === 'object' ? parsed : {};
+            const adminStories = JSON.parse(adminStoriesRaw);
+            
+            Object.values(adminStories).forEach(story => {
+                if (!story || typeof story !== 'object' || !story.id || !story.data || typeof story.data !== 'object') {
+                    return;
+                }
+
+                const safeTitle = escapeHtml(story.title || 'Untitled Adventure');
+                const synopsis = typeof story.synopsis === 'string' ? story.synopsis : 'A custom story.';
+                const safeSynopsis = escapeHtml(synopsis);
+                const card = document.createElement('div');
+                card.className = "story-card bg-card border border-border rounded-2xl p-6 flex flex-col hover:border-secondary transition-all duration-300 group cursor-pointer";
+                card.setAttribute('data-title', story.title || 'Untitled Adventure');
+                card.setAttribute('data-synopsis', synopsis);
+                card.setAttribute('data-story-id', story.id);
+                
+                const thumbHtml = story.thumbnail 
+                    ? `<img src="${story.thumbnail}" class="w-full h-full object-cover rounded-xl" alt="${safeTitle}">`
+                    : `<span class="text-xs font-bold text-secondary uppercase tracking-widest">Architect Story</span>`;
+
+                card.innerHTML = `
+                    <div class="aspect-video bg-[#18181b] rounded-xl mb-6 flex items-center justify-center overflow-hidden">
+                        ${thumbHtml}
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">${safeTitle}</h3>
+                    <p class="text-secondary text-sm leading-relaxed mb-6 flex-1">${safeSynopsis.substring(0, 100)}...</p>
+                    <button class="start-btn w-full py-2.5 border border-border rounded-xl text-sm font-bold hover:bg-primary hover:text-background transition-all">Start Adventure</button>
+                `;
+
+                customStoryGrid.appendChild(card);
+                bindCardListeners(card, story.data);
+            });
         } catch (e) {
             return {};
         }
@@ -231,6 +263,48 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+
+        document.querySelectorAll('.story-card[data-story-id]').forEach(card => {
+            const storyId = card.getAttribute('data-story-id');
+            const story = allStories[storyId];
+            if (!story || !story.data || typeof story.data !== 'object') return;
+
+            applyStoryMetaToCard(card, story);
+            bindCardListeners(card, story.data);
+        });
+
+        // Only render non-static stories in the custom grid to avoid duplicates.
+        Object.values(allStories).forEach(story => {
+            if (!story || typeof story !== 'object' || !story.id || !story.data || typeof story.data !== 'object') {
+                return;
+            }
+            if (STATIC_STORY_IDS.has(story.id)) return;
+
+            const safeTitle = escapeHtml(story.title || 'Untitled Adventure');
+            const synopsis = typeof story.synopsis === 'string' ? story.synopsis : 'A custom story.';
+            const safeSynopsis = escapeHtml(synopsis);
+            const card = document.createElement('div');
+            card.className = 'story-card bg-card border border-border rounded-2xl p-6 flex flex-col hover:border-secondary transition-all duration-300 group cursor-pointer';
+
+            const thumbHtml = story.thumbnail
+                ? `<img src="${story.thumbnail}" class="w-full h-full object-cover rounded-xl" alt="${safeTitle}">`
+                : '<span class="text-xs font-bold text-secondary uppercase tracking-widest">Architect Story</span>';
+
+            card.innerHTML = `
+                <div class="aspect-video bg-[#18181b] rounded-xl mb-6 flex items-center justify-center overflow-hidden">
+                    ${thumbHtml}
+                </div>
+                <h3 class="text-xl font-bold mb-2">${safeTitle}</h3>
+                <p class="text-secondary text-sm leading-relaxed mb-6 flex-1">${safeSynopsis.substring(0, 100)}...</p>
+                <button class="start-btn w-full py-2.5 border border-border rounded-xl text-sm font-bold hover:bg-primary hover:text-background transition-all">Start Adventure</button>
+            `;
+
+            applyStoryMetaToCard(card, story);
+            customStoryGrid.appendChild(card);
+            bindCardListeners(card, story.data);
+        });
+    }
+
     // --- Branching Logic & Reading Engine ---
     function loadPath(pathKey) {
         if (pathKey === 'start' && !activeStoryNodes.start) {
@@ -260,6 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderParagraph(data.text);
 
+        
         (data.choices || []).forEach(choice => {
             const btn = document.createElement('button');
             btn.className = 'w-full text-left bg-card border border-border p-4 rounded-xl text-secondary hover:border-white hover:text-primary transition-all duration-300 group flex justify-between items-center';
@@ -418,4 +493,5 @@ document.addEventListener('DOMContentLoaded', () => {
     synopsisModal.addEventListener('click', (e) => { if (e.target === synopsisModal) closeModal(); });
 
     initStories();
+    initAdminStories();
 });
