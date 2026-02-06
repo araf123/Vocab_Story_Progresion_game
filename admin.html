@@ -57,6 +57,11 @@
             height: 100%;
             pointer-events: none;
             z-index: 5;
+            overflow: visible;
+        }
+
+        #workspace {
+            transform-origin: 0 0;
         }
 
         #workspace {
@@ -506,6 +511,7 @@
             const workspace = document.getElementById('workspace');
             svg.setAttribute('width', workspace.offsetWidth);
             svg.setAttribute('height', workspace.offsetHeight);
+            svg.setAttribute('viewBox', `-4000 -4000 ${workspace.offsetWidth + 8000} ${workspace.offsetHeight + 8000}`);
             
             // Fix 1: Properly clear the SVG content before redrawing
             svg.innerHTML = `
@@ -519,6 +525,12 @@
             connections.forEach(conn => {
                 const port = conn.fromNode.querySelectorAll('.port')[conn.fromChoice];
                 if (!port) return;
+
+                const fromNodeX = parseFloat(conn.fromNode.style.left) || 0;
+                const fromNodeY = parseFloat(conn.fromNode.style.top) || 0;
+                const toNodeX = parseFloat(conn.toNode.style.left) || 0;
+                const toNodeY = parseFloat(conn.toNode.style.top) || 0;
+
 
                 const fromNodeX = parseFloat(conn.fromNode.style.left) || 0;
                 const fromNodeY = parseFloat(conn.fromNode.style.top) || 0;

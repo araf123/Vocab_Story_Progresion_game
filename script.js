@@ -217,6 +217,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function clearDynamicStoryCards() {
+        customStoryGrid.querySelectorAll('[data-origin="dynamic"]').forEach(card => card.remove());
+    }
+
+    // --- Admin Portal Integration ---
+    function initStories() {
+        ensureDefaultStoriesSeeded();
+        const allStories = getAllStories();
+
+        clearDynamicStoryCards();
+
+        document.querySelectorAll('.story-card[data-story-id]').forEach(card => {
+            const storyId = card.getAttribute('data-story-id');
+            const story = allStories[storyId];
+            if (!story || !story.data || typeof story.data !== 'object') return;
+
+            applyStoryMetaToCard(card, story);
+            bindCardListeners(card, story.data);
+        });
+
+
+        const titleEl = card.querySelector('h3');
+        if (titleEl) titleEl.textContent = story.title || 'Untitled Adventure';
+
+        const synopsisEl = card.querySelector('p.text-secondary');
+        if (synopsisEl) {
+            const synopsis = story.synopsis || 'A custom story.';
+            synopsisEl.textContent = synopsis.length > 100 ? `${synopsis.slice(0, 100)}...` : synopsis;
+        }
+    }
+
     // --- Admin Portal Integration ---
     function initStories() {
         ensureDefaultStoriesSeeded();
@@ -285,6 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const safeSynopsis = escapeHtml(synopsis);
             const card = document.createElement('div');
             card.className = 'story-card bg-card border border-border rounded-2xl p-6 flex flex-col hover:border-secondary transition-all duration-300 group cursor-pointer';
+            card.dataset.origin = 'dynamic';
 
             const thumbHtml = story.thumbnail
                 ? `<img src="${story.thumbnail}" class="w-full h-full object-cover rounded-xl" alt="${safeTitle}">`
@@ -473,18 +505,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function bindCardListeners(card, storyNodes) {
+        card._storyNodes = storyNodes;
+        if (card.dataset.listenersBound === 'true') return;
+
         card.addEventListener('click', (e) => {
             if (e.target.closest('.start-btn')) return;
-            openModal(card.getAttribute('data-title'), card.getAttribute('data-synopsis'), storyNodes);
+            openModal(card.getAttribute('data-title'), card.getAttribute('data-synopsis'), card._storyNodes);
         });
 
         const startBtn = card.querySelector('.start-btn');
         if (startBtn) {
             startBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                showView('adventure', card.getAttribute('data-title'), storyNodes);
+                showView('adventure', card.getAttribute('data-title'), card._storyNodes);
             });
         }
+
+        card.dataset.listenersBound = 'true';
     }
 
     closeBtn.addEventListener('click', closeModal);
@@ -492,6 +529,12 @@ document.addEventListener('DOMContentLoaded', () => {
     backToLibraryBtn.addEventListener('click', () => showView('dashboard'));
     synopsisModal.addEventListener('click', (e) => { if (e.target === synopsisModal) closeModal(); });
 
+    window.addEventListener('focus', initStories);
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'admin_stories') initStories();
+    });
+
+    initStories();
     initStories();
     initAdminStories();
 });
